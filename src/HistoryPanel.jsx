@@ -1,0 +1,37 @@
+import React,{useMemo,useState} from 'react';
+import {ArrowDownToLine,CheckCircle2,FileText,History,LoaderCircle,Trash2,Undo2} from 'lucide-react';
+import {KIND_LABELS,REPORT_SECTIONS,selectReport} from './history.js';
+
+const formatted=value=>new Date(value).toLocaleString('es-CO',{timeZone:'America/Bogota',dateStyle:'medium',timeStyle:'short'});
+export default function HistoryPanel({records,onRemove,onRestore}) {
+  const [selected,setSelected]=useState([]),[sections,setSections]=useState(REPORT_SECTIONS.filter(([id])=>id!=='code').map(([id])=>id));
+  const [kind,setKind]=useState('all'),[query,setQuery]=useState(''),[title,setTitle]=useState('Historial de prácticas'),[author,setAuthor]=useState(''),[notes,setNotes]=useState('');
+  const [error,setError]=useState(''),[generating,setGenerating]=useState(false),[exported,setExported]=useState(false),[removed,setRemoved]=useState([]);
+  const visible=records.filter(record=>(kind==='all'||record.kind===kind)&&record.title.toLocaleLowerCase('es').includes(query.toLocaleLowerCase('es')));
+  const ids=selected.filter(id=>records.some(record=>record.id===id));
+  const selection=useMemo(()=>{try{return selectReport(records,ids,sections,{title,author,notes});}catch{return null;}},[records,selected,sections,title,author,notes]);
+  const toggle=(values,value)=>values.includes(value)?values.filter(item=>item!==value):[...values,value];
+  const recordSelection=id=>{setSelected(current=>toggle(current,id));setExported(false);};
+  async function exportPdf() {
+    setError('');setGenerating(true);setExported(false);
+    try {
+      const report=selectReport(records,ids,sections,{title,author,notes});
+      const {createReportPdf}=await import('./report-pdf.js');
+      const {blob}=await createReportPdf(report);
+      const url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download='historial-semillero.pdf';anchor.click();setTimeout(()=>URL.revokeObjectURL(url),2000);setExported(true);
+    }catch(e){setError(`No se pudo generar el PDF: ${e.message}`);}finally{setGenerating(false);}
+  }
+  function removeSelected() {const items=records.filter(record=>ids.includes(record.id));setRemoved(items);onRemove(ids);setSelected([]);setExported(false);}
+  return <div className="history-tool">
+    <div className="history-intro"><div><History size={21}/><p><strong>{records.length} prácticas guardadas</strong><span>En este navegador · Selecciona las que deseas incluir en el informe.</span></p></div>{removed.length>0&&<button className="text-button" onClick={()=>{onRestore(removed);setRemoved([]);}}><Undo2 size={15}/> Deshacer eliminación ({removed.length})</button>}</div>
+    <div className="history-grid"><section className="panel history-records"><div className="panel-heading"><span className="section-index">01 / ELIGE LAS PRÁCTICAS</span><h2>Tu historial de laboratorio</h2><p>Las pruebas de dispositivo, los análisis y las simulaciones se guardan por separado.</p></div><div className="panel-body"><div className="history-filters"><input aria-label="Buscar en el historial" placeholder="Buscar una práctica…" value={query} onChange={event=>setQuery(event.target.value)}/><select aria-label="Tipo de práctica" value={kind} onChange={event=>setKind(event.target.value)}><option value="all">Todos los tipos</option>{Object.entries(KIND_LABELS).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></div><div className="history-selection"><button className="text-button" disabled={!visible.length} onClick={()=>{setSelected(current=>[...new Set([...current,...visible.map(record=>record.id)])]);setExported(false);}}>Seleccionar visibles ({visible.length})</button><button className="text-button" disabled={!ids.length} onClick={()=>{setSelected([]);setExported(false);}}>Quitar selección</button></div>
+      {!visible.length&&<div className="empty"><History size={28}/><strong>{records.length?'No hay coincidencias':'Todavía no hay prácticas guardadas'}</strong><p>Completa una prueba de portal, analiza un HTML o ejecuta una simulación. También puedes guardar una práctica en curso desde su registro.</p></div>}
+      <div className="history-cards">{visible.map(record=><label className={`history-card ${ids.includes(record.id)?'selected':''}`} key={record.id}><input type="checkbox" checked={ids.includes(record.id)} onChange={()=>recordSelection(record.id)} aria-label={`Seleccionar ${record.title}`}/><div><span className="history-kind">{KIND_LABELS[record.kind]}</span><strong>{record.title}</strong><small>{formatted(record.savedAt)} · {record.status}</small><p>{record.summary}</p></div></label>)}</div>
+      {ids.length>0&&<button className="text-button delete-history" onClick={removeSelected}><Trash2 size={14}/> Eliminar seleccionadas del historial</button>}
+    </div></section>
+    <section className="panel pdf-options"><div className="panel-heading"><span className="section-index">02 / PERSONALIZA EL PDF</span><h2>Tú decides qué incluir.</h2><p>El archivo se genera únicamente con las prácticas y los apartados seleccionados.</p></div><div className="panel-body form-stack"><div><label htmlFor="report-title">Título del informe</label><input id="report-title" value={title} maxLength={100} onChange={event=>{setTitle(event.target.value);setExported(false);}}/></div><div><label htmlFor="report-author">Nombre o equipo (opcional)</label><input id="report-author" value={author} maxLength={80} onChange={event=>{setAuthor(event.target.value);setExported(false);}}/></div><fieldset className="report-sections"><legend>Apartados del informe</legend>{REPORT_SECTIONS.map(([id,label])=><label key={id}><input type="checkbox" checked={sections.includes(id)} onChange={()=>{setSections(current=>toggle(current,id));setExported(false);}}/>{label}</label>)}</fieldset><div><label htmlFor="report-notes">Notas o conclusiones (opcional)</label><textarea id="report-notes" rows={3} value={notes} maxLength={1200} onChange={event=>{setNotes(event.target.value);setExported(false);}}/></div>
+      <div className="report-preview"><h3><FileText size={17}/> Vista previa de la selección</h3><p><strong>{ids.length} prácticas</strong> · {sections.length} apartados</p>{selection?.items.map(item=><div key={item.id}><strong>{item.title}</strong><small>{[item.events&&`${item.events.length} eventos`,item.analysis?.forms&&`${item.analysis.forms.length} formularios`,item.analysis?.resources&&`${item.analysis.resources.length} recursos`,item.analysis?.http&&`${item.analysis.http.length} referencias HTTP`,item.analysis?.findings&&`${item.analysis.findings.length} hallazgos`,item.network?.observation&&'Datos y configuración de red',item.network?.findings&&`${item.network.findings.length} hallazgos de red`,item.network?.plan&&`${item.network.plan.length} acciones del plan`].filter(Boolean).join(' · ')||'Identificación y apartados elegidos'}</small></div>)}{!ids.length&&<small>Selecciona al menos una práctica del historial.</small>}{!sections.length&&<small>Selecciona al menos un apartado.</small>}</div>
+      <button className="button primary full" disabled={!selection||generating} onClick={exportPdf}>{generating?<LoaderCircle size={17} className="spin"/>:<ArrowDownToLine size={17}/>} {generating?'Generando PDF…':'Descargar PDF seleccionado'}</button>{error&&<p className="tool-error" role="alert">{error}</p>}{exported&&<p className="saved-message" role="status"><CheckCircle2 size={15}/> PDF generado con tu selección.</p>}
+    </div></section></div>
+  </div>;
+}

@@ -1,0 +1,35 @@
+.flipper-animation{--sprite-size:134px;--float-up:9px;--float-side:4px;position:relative;width:var(--sprite-size);height:var(--sprite-size);display:grid;place-items:center;flex:0 0 auto;isolation:isolate}
+.flipper-animation__sprite{position:absolute;inset:0;display:grid;place-items:center;animation:flipper-float 2.5s ease-in-out infinite}
+.flipper-animation__frame{position:absolute;width:88%;height:88%;object-fit:contain;opacity:0;animation:flipper-frame 2.1s steps(1,end) infinite;animation-delay:calc(var(--frame)*-.35s);user-select:none;pointer-events:none}
+.flipper-animation__bubble{position:absolute;z-index:2;left:72%;bottom:29%;width:10px;height:10px;border:2px solid #f07a1b;border-radius:50%;background:#fff8f1;box-shadow:0 1px 4px #7b3c1220;opacity:0;animation:flipper-bubble-rise 1.8s ease-out infinite}
+.flipper-animation__bubble--one{--bubble-x:12px;--bubble-y:-54px;animation-delay:0s}
+.flipper-animation__bubble--two{--bubble-x:-10px;--bubble-y:-43px;width:8px;height:8px;animation-delay:-.6s}
+.flipper-animation__bubble--three{--bubble-x:15px;--bubble-y:-66px;width:7px;height:7px;animation-delay:-1.2s}
+.flipper-animation--small{--sprite-size:74px;--float-up:5px;--float-side:2px}
+.flipper-animation--small .flipper-animation__bubble{width:6px;height:6px;border-width:1px}
+.flipper-animation--tiny{--sprite-size:43px;--float-up:2px;--float-side:1px}
+.flipper-animation--tiny .flipper-animation__frame{width:100%;height:100%}
+.flipper-animation--tiny .flipper-animation__bubble{left:73%;bottom:31%;width:4px;height:4px;border-width:1px}
+.alert.error .flipper-animation--tiny{margin:-13px -3px -13px -9px}
+.flipper-animation--large{--sprite-size:188px;--float-up:12px;--float-side:5px}
+.flipper-loading{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:24px;background:#faf9f7;animation:flipper-screen-in .18s ease-out both}
+.flipper-loading__card{display:flex;flex-direction:column;align-items:center;gap:13px;text-align:center;color:#29231f}
+.flipper-loading__card>strong{font-size:15px;font-weight:600}
+.flipper-loading__card>small{font-size:9px;font-weight:750;letter-spacing:3px;color:#d96818}
+.flipper-loading__progress{width:min(190px,60vw);height:4px;border-radius:99px;background:#f3dfcc;overflow:hidden}
+.flipper-loading__progress>span{display:block;height:100%;border-radius:inherit;background:#ff8f2c;transition:width .2s ease}
+.flipper-offline{display:flex;align-items:center;gap:13px;margin:0 0 18px;padding:11px 15px;border:1px solid #efc59f;border-radius:9px;background:#fff4e9;color:#3a3028}
+.flipper-offline strong{display:block;font-size:12px;color:#98460e}
+.flipper-offline p{margin-top:4px;font-size:11px;line-height:1.6;color:#725f4e}
+.flipper-status-page{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 42%,#fff8f1 0,#f8f6f3 65%)}
+.flipper-status-page__card{width:min(100%,470px);display:flex;flex-direction:column;align-items:center;text-align:center;padding:44px 32px;border:1px solid #e8dfd6;border-radius:18px;background:#fff;box-shadow:0 18px 60px #34241712}
+.flipper-status-page__card>span{margin:9px 0 8px;color:#bd5711;font-size:10px;font-weight:750;letter-spacing:2px}
+.flipper-status-page__card h1{font-size:clamp(25px,5vw,34px);letter-spacing:-.8px;color:#242424}
+.flipper-status-page__card p{max-width:340px;margin:12px 0 23px;color:#706a65;font-size:13px;line-height:1.7}
+.flipper-status-page__card .button{text-decoration:none}
+@keyframes flipper-frame{0%,16.68%{opacity:1}16.69%,100%{opacity:0}}
+@keyframes flipper-float{0%,100%{transform:translate(calc(var(--float-side)*-1),0) rotate(-1deg)}25%{transform:translate(0,calc(var(--float-up)*-.5)) rotate(0)}50%{transform:translate(var(--float-side),calc(var(--float-up)*-1)) rotate(1deg)}75%{transform:translate(1px,calc(var(--float-up)*-.35)) rotate(0)}}
+@keyframes flipper-bubble-rise{0%{transform:translate(0,0) scale(.55);opacity:0}12%{opacity:.95}75%{opacity:.8}100%{transform:translate(var(--bubble-x),var(--bubble-y)) scale(1.1);opacity:0}}
+@keyframes flipper-screen-in{from{opacity:0}to{opacity:1}}
+@media(max-width:520px){.flipper-offline{align-items:flex-start;gap:8px;padding:9px}.flipper-offline .flipper-animation{margin-left:-7px}.flipper-offline p{font-size:10px}.flipper-status-page__card{padding:33px 21px}}
+@media(prefers-reduced-motion:reduce){.flipper-animation__sprite{animation-duration:5s!important}.flipper-animation__frame{animation-duration:5.1s!important;animation-delay:calc(var(--frame)*-.85s)!important}.flipper-animation__bubble{animation-duration:3s!important}.flipper-animation__bubble--two{animation-delay:-1s!important}.flipper-animation__bubble--three{animation-delay:-2s!important}.flipper-loading{animation:none!important}}

