@@ -96,3 +96,7 @@ input:not([type=file]):not([type=checkbox]),textarea{border-color:#ded8d2;color:
 .simulation-visual{color:#d96818}
 .simulation-visual strong{color:#382a20}
 footer{color:#82776d}
+
+.hardware-path .flipper-mini{gap:6px}
+.flipper-device-icon{display:block;width:72px;height:33px;object-fit:contain;filter:drop-shadow(0 2px 2px #24170d18)}
+@media(max-width:520px){.flipper-device-icon{width:56px;height:28px}}
