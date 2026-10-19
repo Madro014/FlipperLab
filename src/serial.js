@@ -1,4 +1,5 @@
-import {APP_PATHS, PORTAL_DIR, cleanTerminal, parseDeviceInfo, parseStorageText, storageExists, stripResponse} from './device-protocol.js';
+import {APP_PATHS, PORTAL_DIR, BADUSB_DIR, cleanTerminal, parseDeviceInfo, parseStorageList, parseStorageText, storageExists, stripResponse} from './device-protocol.js';
+import {describeBadUsbScript} from './badusb-script.js';
 import {createTestBundle} from './portal.js';
 import {NETWORK_APPS} from './network-audit.js';
 
@@ -216,6 +217,142 @@ export class FlipperSerial {
         return state;
       }
       throw new Error('No se encontró la aplicación Evil Portal.');
+    });
+  }
+
+  async saveBadUsbScript({folder = '', fileName, text}, progress = () => {}) {
+    return this.exclusive(async () => {
+      if (!this.identity) throw new Error('Conecta el Flipper y ejecuta el diagnóstico primero.');
+      await this.requireIdle();
+      if (!await this.exists('/ext')) throw new Error('No se encontró una microSD disponible en el Flipper.');
+      await this.ensureDir(BADUSB_DIR);
+      const cleanFolder = folder ? folder.trim().replace(/[^a-z0-9_-]+/gi, '_').replace(/^_+|_+$/g, '').slice(0, 32) : '';
+      const targetDir = cleanFolder ? `${BADUSB_DIR}/${cleanFolder}` : BADUSB_DIR;
+      if (cleanFolder) await this.ensureDir(targetDir);
+      const cleanName = fileName.trim().replace(/[^a-z0-9_-]+/gi, '_').replace(/^_+|_+$/g, '').slice(0, 32) || 'mensaje_demo';
+      const targetPath = `${targetDir}/${cleanName}.txt`;
+      if (await this.exists(targetPath)) {
+        await this.command(`storage remove ${targetPath}`);
+      }
+      const bytes = new TextEncoder().encode(text);
+      for (let offset = 0; offset < bytes.length; offset += 256) {
+        const chunk = bytes.slice(offset, offset + 256);
+        const ready = await this.request(`storage write_chunk ${targetPath} ${chunk.length}\r`, {
+          match: response => /(?:^|\r?\n)Ready\r?\n$/.test(response) || /(?:^|\r?\n)>: $/.test(response),
+        });
+        if (!/(?:^|\r?\n)Ready\r?\n$/.test(ready)) throw new Error('El Flipper no aceptó el bloque de datos.');
+        await this.request(chunk);
+        progress(Math.min(1, (offset + chunk.length) / bytes.length));
+      }
+      if (await this.readText(targetPath) !== text) throw new Error('La verificación del script en el Flipper no coincide.');
+      progress(1);
+      return {path: targetPath, folder: cleanFolder, fileName: `${cleanName}.txt`};
+    });
+  }
+
+  async openBadUsb(filePath = '') {
+    return this.exclusive(async () => {
+      if (!this.identity) throw new Error('Conecta el Flipper y ejecuta el diagnóstico primero.');
+      await this.requireIdle();
+      const candidates = [
+        filePath ? `loader open BadUSB ${filePath}` : '',
+        filePath ? `loader open "Bad USB" ${filePath}` : '',
+        filePath ? `loader open /ext/apps/USB/badusb.fap ${filePath}` : '',
+        'loader open BadUSB',
+        'loader open "Bad USB"',
+        'loader open /ext/apps/USB/badusb.fap',
+      ].filter(Boolean);
+
+      let opened = false;
+      let lastError = '';
+      for (const cmd of candidates) {
+        try {
+          const result = await this.command(cmd, {allowError: true});
+          if (/error|not found|cannot|failed/i.test(result)) {
+            lastError = result.trim();
+            continue;
+          }
+          const state = await this.command('loader info');
+          if (/Application .*is running/i.test(state)) {
+            opened = true;
+            return {command: cmd, state};
+          }
+        } catch (e) {
+          lastError = e.message;
+        }
+      }
+      if (!opened) {
+        throw new Error(`No se pudo abrir Bad USB en el Flipper. ${lastError || 'Revisa la pantalla del Flipper.'}`);
+      }
+    });
+  }
+
+  async listBadUsbScripts(folder = 'semillero') {
+    return this.exclusive(async () => {
+      if (!this.identity) throw new Error('Conecta el Flipper y ejecuta el diagnóstico primero.');
+      await this.requireIdle();
+      if (!await this.exists('/ext')) throw new Error('No se encontró una microSD disponible en el Flipper.');
+      const cleanFolder = folder ? folder.trim().replace(/[^a-z0-9_-]+/gi, '_').replace(/^_+|_+$/g, '').slice(0, 32) : '';
+      const targetDir = cleanFolder ? `${BADUSB_DIR}/${cleanFolder}` : BADUSB_DIR;
+      if (!await this.exists(targetDir)) {
+        return [];
+      }
+      const raw = await this.command(`storage list ${targetDir}`);
+      const entries = parseStorageList(raw).filter(item => item.type === 'file' && item.name.toLowerCase().endsWith('.txt'));
+
+      const results = [];
+      for (const entry of entries) {
+        const filePath = `${targetDir}/${entry.name}`;
+        let content = '';
+        try {
+          content = await this.readText(filePath);
+        } catch {
+          content = '';
+        }
+        results.push({
+          name: entry.name,
+          path: filePath,
+          folder: cleanFolder,
+          size: entry.size,
+          content,
+          description: describeBadUsbScript(content, entry.name),
+        });
+      }
+      return results;
+    });
+  }
+
+  async deleteBadUsbScript(filePath) {
+    return this.exclusive(async () => {
+      if (!this.identity) throw new Error('Conecta el Flipper y ejecuta el diagnóstico primero.');
+      await this.requireIdle();
+      if (!filePath || !filePath.startsWith('/ext/badusb/')) {
+        throw new Error('Solo se permite eliminar scripts dentro de /ext/badusb/.');
+      }
+      const res = await this.command(`storage remove ${filePath}`);
+      if (/Storage error:/i.test(res) && !/not exist/i.test(res)) {
+        throw new Error(`Error al eliminar: ${res.trim()}`);
+      }
+      return true;
+    });
+  }
+
+  async deleteBadUsbScripts(filePaths = []) {
+    return this.exclusive(async () => {
+      if (!this.identity) throw new Error('Conecta el Flipper y ejecuta el diagnóstico primero.');
+      await this.requireIdle();
+      let count = 0;
+      for (const filePath of filePaths) {
+        if (!filePath || !filePath.startsWith('/ext/badusb/')) {
+          throw new Error('Solo se permite eliminar scripts dentro de /ext/badusb/.');
+        }
+        const res = await this.command(`storage remove ${filePath}`);
+        if (/Storage error:/i.test(res) && !/not exist/i.test(res)) {
+          throw new Error(`Error al eliminar ${filePath}: ${res.trim()}`);
+        }
+        count++;
+      }
+      return count;
     });
   }
 

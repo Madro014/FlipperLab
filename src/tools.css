@@ -2,3 +2,58 @@
 @media(max-width:1180px){.analysis-results,.history-grid{gap:15px}.analysis-tabs{padding:12px 10px}.analysis-tabs button{font-size:9px;padding:7px}.finding-card,.inventory-card{padding:17px}.history-grid .panel-heading h2{font-size:18px}.history-filters input{min-width:100%}.history-filters select{width:100%}.analyzer-options{grid-template-columns:1fr}.analysis-stats{gap:9px}.analysis-stats>button{padding:16px}.history-intro{flex-wrap:wrap}.history-intro>div{align-items:flex-start}}
 @media(max-width:850px){.analysis-results,.history-grid{grid-template-columns:1fr}.code-panel{position:static}.analysis-list{max-height:650px}.history-filters input{min-width:160px}.history-filters select{width:auto}.history-grid .panel-heading h2{font-size:21px}.analyzer-run>span{font-size:10px}.analyzer-run .button{margin-left:auto}.analysis-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.analysis-stats strong{font-size:25px}.history-records .panel-body{padding:20px}.pdf-options .panel-body{padding:20px}.report-sections label{font-size:12px}.history-card strong{font-size:14px}.history-card p{font-size:12px}}
 @media(max-width:520px){.sidebar nav{min-width:0;overflow-x:auto;flex:1;justify-content:flex-start}.sidebar nav .nav-item{flex-shrink:0}.sidebar .brand,.sidebar-bottom{flex-shrink:0}.analyzer-actions{gap:8px}.analyzer-actions .button{font-size:11px;padding:10px}.analyzer-run .button{width:100%;margin-top:3px}.analyzer-options{gap:17px}.analysis-stats{gap:10px;margin:18px 0}.analysis-stats>button{padding:15px}.finding-card h3{font-size:14px}.history-intro>div{gap:9px}.history-intro p>span{font-size:10px}.history-selection{flex-wrap:wrap}.history-filters input{min-width:100%}.history-filters select{width:100%}.report-preview h3{font-size:12px}.record-buttons{width:100%}.record-buttons .button{font-size:10px;flex:1}.code-panel .panel-heading h2{font-size:20px}.history-card{padding:15px 12px}.history-card strong{font-size:13px}}
+.usb-script-grid{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:22px;margin-top:20px}.usb-script-form{display:grid;gap:9px;align-content:start}.usb-script-form>label{font-size:11px;color:#617a4d;font-weight:550;margin-top:8px}.usb-script-form>.field-help{margin:-4px 0 8px}.usb-script-form>.button{justify-self:start;margin-top:8px}.usb-script-preview>div{background:#18251e;color:#e5efdb;border-radius:8px;padding:18px;min-height:220px}.usb-script-preview>div>span{display:block;color:#b7ce9b;font-size:9px;letter-spacing:1.4px;margin-bottom:17px}.usb-script-preview>div>code{display:block;font:12px/1.9 Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere}.usb-script-preview>p{display:flex;align-items:flex-start;gap:8px;margin-top:13px;color:#81916e;font-size:10px;line-height:1.8}.usb-script-preview>p svg{flex:none;margin-top:2px}.usb-script-steps{margin-top:20px}.usb-script-steps ol{list-style:none;padding:0;margin:0}.usb-script-steps li{display:flex;gap:12px;padding:15px 0;border-bottom:1px solid #e7ecdf}.usb-script-steps li>span{display:grid;place-items:center;flex:none;width:27px;height:27px;border-radius:7px;background:#edf4e3;color:#648448;font-size:11px}.usb-script-steps li strong{font-size:12px;color:#5e7749}.usb-script-steps li p{font-size:11px;line-height:1.8;color:#829171;margin-top:4px}.usb-script-steps .note{margin-top:18px}
+.usb-script-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;align-items:center}.ready-launch-btn{background:#356e46!important;color:#fff!important;border:none!important}.ready-launch-btn:hover{background:#418455!important}.preview-path-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px}.sd-path-badge{display:inline-flex;align-items:center;gap:5px;font:11px Consolas,monospace;color:#d6efac;background:rgba(214,239,172,0.12);padding:3px 8px;border-radius:6px}.usb-script-connect-box{display:grid;gap:6px}
+@media(max-width:750px){.usb-script-grid{grid-template-columns:1fr}.usb-script-preview>div{min-height:160px}.usb-script-form>.button,.usb-script-actions>.button{width:100%;justify-content:center}}
+.usb-scripts-manager{margin-top:20px}
+.usb-manager-disconnected{display:flex;flex-direction:column;align-items:flex-start;gap:12px;background:#fbfdf9;border:1px dashed #d5e2cc;padding:20px;border-radius:8px;color:#617b4d}
+.usb-manager-toolbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;padding:12px 0 16px;border-bottom:1px solid #ebf1e4;margin-bottom:16px}
+.manager-toolbar-info{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.manager-toolbar-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.manager-select-all{font-size:11px;color:#5a7346;display:flex;align-items:center;gap:6px;cursor:pointer;margin:0}
+.manager-select-all input{accent-color:#5c843f}
+.confirm-delete-banner{display:flex;gap:14px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin-bottom:16px;color:#991b1b}
+.confirm-delete-banner .warning-icon{flex:none;color:#dc2626;margin-top:2px}
+.confirm-delete-content{flex:1}
+.confirm-delete-content strong{display:block;font-size:13px;color:#991b1b;margin-bottom:4px}
+.confirm-delete-content p{font-size:12px;line-height:1.7;color:#b91c1c;margin:0}
+.confirm-delete-buttons{display:flex;gap:10px;margin-top:12px}
+.button.danger{background:#dc2626!important;color:#fff!important;border:none!important}
+.button.danger:hover{background:#b91c1c!important}
+.button.text-danger{background:transparent!important;color:#dc2626!important;border:1px solid #fca5a5!important}
+.button.text-danger:hover{background:#fee2e2!important}
+.compact-btn{padding:6px 12px!important;font-size:11px!important}
+.manager-loading,.manager-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:36px 16px;color:#7e936b;text-align:center}
+.manager-empty strong{font-size:13px;color:#5c7847}
+.manager-empty p{font-size:11px;color:#859a72;max-width:420px;line-height:1.8}
+.saved-scripts-list{display:grid;gap:12px}
+.script-item-card{border:1px solid #e1e9d8;border-radius:8px;background:#fbfdf9;padding:16px;transition:all 0.15s ease}
+.script-item-card:hover{border-color:#cbdbbe;box-shadow:0 2px 6px rgba(0,0,0,0.03)}
+.script-item-card.selected{border-color:#5c843f;background:#f2f8ec}
+.script-card-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px}
+.script-checkbox-wrapper{display:flex;align-items:center;gap:8px;cursor:pointer;margin:0}
+.script-checkbox-wrapper input{accent-color:#5c843f}
+.script-name{font:600 13px Consolas,monospace;color:#3d5b2c}
+.script-header-badges{display:flex;align-items:center;gap:8px}
+.script-size-tag{font-size:10px;color:#899c75;background:#edf3e5;padding:2px 7px;border-radius:4px}
+.script-card-body{margin:6px 0 12px}
+.script-action-summary{font-size:12px;color:#496538;line-height:1.7;margin:0}
+.script-action-details{margin-top:6px;background:#18251e;border-radius:6px;padding:6px 10px}
+.script-action-details code{font:11px Consolas,monospace;color:#d6efac;white-space:pre-wrap;overflow-wrap:anywhere}
+.script-card-footer{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;border-top:1px solid #edf3e4;padding-top:10px}
+.script-file-path{font:10px Consolas,monospace;color:#889b74}
+.script-card-buttons{display:flex;gap:8px;align-items:center}
+.badge.red-badge{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5}
+.badge.blue-badge{background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd}
+.badge.purple-badge{background:#f3e8ff;color:#7e22ce;border:1px solid #e9d5ff}
+
+.usb-script-form>label{justify-content:flex-start}
+.usb-script-select{position:relative;min-width:0}
+.usb-script-select select{display:block;width:100%;min-height:54px;appearance:none;-webkit-appearance:none;border:1px solid #ded8d2;border-radius:8px;background:#fff;color:#302923;padding:12px 42px 12px 15px;font:inherit;font-size:13px;line-height:1.5;cursor:pointer;transition:border-color .15s ease,box-shadow .15s ease,background-color .15s ease}
+.usb-script-select select:hover:not(:disabled){border-color:#e6a770;background:#fffaf6}
+.usb-script-select select:focus-visible{outline:2px solid #df7a2c;outline-offset:2px;border-color:#df7a2c}
+.usb-script-select select:disabled{background:#f8f5f2;color:#8b8178;cursor:not-allowed}
+.usb-script-select>svg{position:absolute;right:15px;top:50%;transform:translateY(-50%);color:#a44c11;pointer-events:none}
+.usb-script-select select:disabled+svg{color:#aa9e94}
+
+

@@ -38,7 +38,8 @@ export function makeFakePort(options = {}) {
             if(!command) answer('');
             else if(command === 'info device') answer('hardware.model : Flipper Zero\r\nhardware.name : Prueba\r\nhardware.uid : TEST-DEVICE\r\nfirmware.origin.fork : Momentum\r\nfirmware.version : mntm-dev\r\nfirmware.build.date : 18-08-2026\r\n');
             else if(command === 'loader info') answer(app ? `Application "${app}" is running\r\n` : 'No application is running\r\n');
-            else if(parts[0] === 'loader' && parts[1] === 'open') {app = path?.includes('marauder')?'ESP32 WiFi Marauder':path?.includes('wifi_scanner')?'WiFi Scanner':'Evil Portal';answer('');}
+            else if(parts[0] === 'loader' && parts[1] === 'open') {app = command.toLowerCase().includes('bad') ? 'Bad USB' : path?.includes('marauder') ? 'ESP32 WiFi Marauder' : path?.includes('wifi_scanner') ? 'WiFi Scanner' : 'Evil Portal'; answer('');}
+            else if(parts[0] === 'loader' && parts[1] === 'close') {app = ''; answer('');}
             else if(parts[0] !== 'storage') answer('Unknown command\r\n');
             else if(parts[1] === 'stat') {
               if(dirs.has(path)) answer(path === '/ext' ? 'Storage, 100000KiB total, 99999KiB free\r\n' : 'Directory\r\n');
@@ -50,6 +51,24 @@ export function makeFakePort(options = {}) {
               else error('file/dir not exist');
             } else if(parts[1] === 'write_chunk') {raw = {path, size:Number(parts[3]), buffer:[]};send('Ready\r\n');}
             else if(parts[1] === 'remove') {if(files.delete(path)) answer(''); else error('file/dir not exist');}
+            else if(parts[1] === 'list') {
+              if(!dirs.has(path) && path !== '/ext') error('file/dir not exist');
+              else {
+                const prefix = path.endsWith('/') ? path : path + '/';
+                const entries = [];
+                for(const d of dirs) {
+                  if(d.startsWith(prefix) && d !== path && !d.slice(prefix.length).includes('/')) {
+                    entries.push(`[D] ${d.slice(prefix.length)}`);
+                  }
+                }
+                for(const [f, bytes] of files.entries()) {
+                  if(f.startsWith(prefix) && !f.slice(prefix.length).includes('/')) {
+                    entries.push(`[F] ${f.slice(prefix.length)} ${bytes.length}b`);
+                  }
+                }
+                answer(entries.join('\r\n'));
+              }
+            }
             else if(parts[1] === 'rename') {
               if(options.failPromotion && !failed && path.endsWith('/new-ap.config.txt')) {failed = true;error('injected write failure');}
               else if(!files.has(path)) error('file/dir not exist');

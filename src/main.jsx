@@ -1,6 +1,6 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {createRoot} from 'react-dom/client';
-import {Activity, ArrowDownToLine, ArrowLeft, ArrowRight, Check, CheckCircle2, ChevronRight, CircleHelp, Code2, Cpu, ExternalLink, FileCode2, FlaskConical, Info, Link2, LoaderCircle, Monitor, Play, RefreshCw, ShieldCheck, Smartphone, Terminal, Unplug, Upload, Usb, Wifi, X} from 'lucide-react';
+import {Activity, ArrowDownToLine, ArrowLeft, ArrowRight, Check, CheckCircle2, ChevronRight, CircleHelp, Code2, Cpu, ExternalLink, FileCode2, FlaskConical, Info, Keyboard, Link2, LoaderCircle, Monitor, Play, RefreshCw, ShieldCheck, Smartphone, Terminal, Unplug, Upload, Usb, Wifi, X} from 'lucide-react';
 import {createTestBundle, MAX_HTML_BYTES, MAX_DEVICE_HTML_BYTES, newToken, sanitizePortal, simulatedEvents} from './portal.js';
 import {FlipperSerial, isFlipperCandidate} from './serial.js';
 import {History,Search} from 'lucide-react';
@@ -9,13 +9,14 @@ import HistoryPanel from './HistoryPanel.jsx';
 import NetworkPanel from './NetworkPanel.jsx';
 import {NETWORK_APPS} from './network-audit.js';
 import MarauderPanel from './MarauderPanel.jsx';
+import UsbScriptsPanel from './UsbScriptsPanel.jsx';
 import {useHistory} from './use-history.js';
 import {FlipperAnimation, LoadingOverlay, NotFoundPage, OfflineNotice} from './FlipperStatus.jsx';
 import './style.css';
 import './tools.css';
 
 const steps = [{title:'Conecta tu equipo', text:'USB y diagnóstico'}, {title:'Prepara el portal', text:'Plantilla y carga real'}, {title:'Prueba desde tu móvil', text:'Verificación visual'}];
-const tabs = [['lab', FlaskConical, 'Probar portal'], ['network', Wifi, 'Auditar red'], ['analyzer', Search, 'Analizar HTML'], ['history', History, 'Historial y PDF'], ['device', Usb, 'Mi dispositivo'], ['activity', Activity, 'Registro de sesión'], ['simulation', Play, 'Simulación']];
+const tabs = [['lab', FlaskConical, 'Probar portal'], ['network', Wifi, 'Auditar red'], ['usbScripts', Keyboard, 'Scripts USB'], ['analyzer', Search, 'Analizar HTML'], ['history', History, 'Historial y PDF'], ['device', Usb, 'Mi dispositivo'], ['activity', Activity, 'Registro de sesión'], ['simulation', Play, 'Simulación']];
 const clock = value => new Date(value).toLocaleTimeString('es-CO', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
 function Badge({children, tone = 'neutral'}) { return <span className={`badge ${tone}`}>{children}</span>; }
 function Button({children, variant = 'secondary', busy, className = '', ...props}) {
@@ -164,9 +165,40 @@ function App() {
       observation:{method:'confirmacion-manual-del-usuario',completed:verified},esp32Firmware:'no-identificado-por-usb',events};
     downloadFile('reporte-semillero.json',JSON.stringify(report,null,2),'application/json');
   }
-  const pageTitles = {lab:'Del USB a tu primera prueba.',network:'Conoce y mejora tu red.',analyzer:'Entiende lo que envía tu página.',history:'De la práctica al informe.',device:'Tu equipo, sin suposiciones.',activity:'Una sesión que puedes explicar.',simulation:'Ensaya el recorrido.'};
-  const pageDescriptions = {lab:'Prepara Evil Portal y comprueba la página desde tu propio teléfono.',network:'Elige tu red y ejecuta comprobaciones con la AIO. Recibe evidencia y recomendaciones para corregir lo observado.',analyzer:'Formularios, recursos y conexiones HTTP, con evidencia en las líneas del HTML.',history:'Selecciona tus prácticas y decide qué contenido aparecerá en el PDF.',device:'Información leída por USB y lo que todavía necesitas verificar.',activity:'Distingue las lecturas del equipo, tus observaciones y las simulaciones.',simulation:'Recorre una demostración local sin usar el hardware.'};
-  const loadingLabels={connect:'Conectando con el Flipper…',diagnose:'Leyendo el diagnóstico…',upload:`Cargando la prueba… ${uploadProgress}%`,open:'Abriendo la aplicación…',restart:'Reiniciando la prueba…',disconnect:'Cerrando la conexión…'};
+  const pageTitles = {lab:'Del USB a tu primera prueba.',network:'Conoce y mejora tu red.',usbScripts:'Prepara un script BadUSB paso a paso.',analyzer:'Entiende lo que envía tu página.',history:'De la práctica al informe.',device:'Tu equipo, sin suposiciones.',activity:'Una sesión que puedes explicar.',simulation:'Ensaya el recorrido.'};
+  const pageDescriptions = {lab:'Prepara Evil Portal y comprueba la página desde tu propio teléfono.',network:'Elige tu red y ejecuta comprobaciones con la AIO. Recibe evidencia y recomendaciones para corregir lo observado.',usbScripts:'Crea una demostración de escritura, descárgala y sigue la guía para ejecutarla manualmente en tu propio equipo.',analyzer:'Formularios, recursos y conexiones HTTP, con evidencia en las líneas del HTML.',history:'Selecciona tus prácticas y decide qué contenido aparecerá en el PDF.',device:'Información leída por USB y lo que todavía necesitas verificar.',activity:'Distingue las lecturas del equipo, tus observaciones y las simulaciones.',simulation:'Recorre una demostración local sin usar el hardware.'};
+  async function saveBadUsbScript({folder, fileName, text}, onProgress) {
+    let result = null;
+    await perform('badusb-save', async () => {
+      result = await serialRef.current.saveBadUsbScript({folder, fileName, text}, onProgress);
+      addEvent(`BadUSB: ${result.fileName} guardado en ${result.path}.`, 'USB', 'success');
+    });
+    return result;
+  }
+  async function openBadUsb(filePath) {
+    let opened = false;
+    await perform('badusb-open', async () => {
+      await serialRef.current.openBadUsb(filePath);
+      addEvent(`Bad USB abierto en el Flipper con ${filePath || 'script seleccionado'}.`, 'USB', 'success');
+      opened = true;
+    });
+    return opened;
+  }
+  const listBadUsbScripts = useCallback(async (folder) => {
+    if (!serialRef.current) return [];
+    try {
+      return await serialRef.current.listBadUsbScripts(folder);
+    } catch {
+      return [];
+    }
+  }, []);
+  const deleteBadUsbScripts = useCallback(async (paths) => {
+    if (!serialRef.current) return 0;
+    const count = await serialRef.current.deleteBadUsbScripts(paths);
+    addEvent(`BadUSB: Eliminados ${count} script(s) de la microSD.`, 'USB', 'info');
+    return count;
+  }, []);
+  const loadingLabels={connect:'Conectando con el Flipper…',diagnose:'Leyendo el diagnóstico…',upload:`Cargando la prueba… ${uploadProgress}%`,open:'Abriendo la aplicación…',restart:'Reiniciando la prueba…',disconnect:'Cerrando la conexión…','badusb-save':'Guardando script en el Flipper…','badusb-open':'Abriendo Bad USB en el Flipper…'};
   const showLoader=startupLoading||Boolean(busy);
   return <div className="app-shell">
     <aside className="sidebar">
@@ -230,6 +262,7 @@ function App() {
         </>}
         {tab === 'device' && <div className="device-grid"><section className="panel"><div className="panel-heading"><span className="section-index">DIAGNÓSTICO USB</span><h2>Información del Flipper</h2><p>Estos valores provienen de la CLI del dispositivo conectado.</p></div><div className="panel-body"><dl className="device-facts">{[['Modelo',diagnostic?.device.model],['Nombre',diagnostic?.device.name],['Firmware',diagnostic && `${diagnostic.device.firmware} ${diagnostic.device.version}`],['Compilación',diagnostic?.device.build],['microSD',diagnostic && (diagnostic.sd ? 'Disponible' : 'No disponible')],['Ruta de Evil Portal',diagnostic?.appPath],...NETWORK_APPS.map(app=>[app.name,diagnostic?diagnostic.networkApps?.find(item=>item.id===app.id)?.path||'No encontrada':'Pendiente de consulta'])].map(([label,value]) => <div key={label}><dt>{label}</dt><dd>{value || 'Pendiente de consulta'}</dd></div>)}</dl><div className="note"><Cpu size={18}/><p>La conexión USB del Flipper no confirma el modelo ni el firmware del ESP32. Comprueba su respuesta en la aplicación que vayas a utilizar.</p></div><Button variant="primary" disabled={!connected || Boolean(busy)} busy={busy === 'diagnose'} onClick={() => perform('diagnose',diagnose)}><RefreshCw size={16}/> Actualizar diagnóstico</Button></div></section><section className="panel terminal-panel"><div className="panel-heading"><span className="section-index">LECTURA DEL PUERTO</span><h2><Terminal size={20}/> Respuesta USB</h2><p>Salida real del Flipper. No es una consola de comandos.</p></div><pre className="terminal">{usbText || 'Esperando conexión USB…\nConecta el Flipper para leer su información.'}</pre><button className="text-button" onClick={() => setUsbText('')}>Limpiar lectura</button></section></div>}
         <div hidden={tab!=='network'}><div className="network-modes" role="group" aria-label="Modo de revisión de red"><button className={networkMode==='direct'?'selected':''} aria-pressed={networkMode==='direct'} onClick={()=>setNetworkMode('direct')}>Diagnóstico con Flipper</button><button className={networkMode==='manual'?'selected':''} aria-pressed={networkMode==='manual'} onClick={()=>setNetworkMode('manual')}>Revisión manual (opcional)</button></div><div hidden={networkMode!=='direct'}><MarauderPanel onPrepare={prepareMarauderBridge} onState={setDirectConnection} onSave={history.save} onHistory={()=>setTab('history')} records={history.records} blocked={Boolean(busy)}/></div><div hidden={networkMode!=='manual'}><NetworkPanel diagnostic={diagnostic} connected={connected} busy={busy} onOpenTool={openNetworkTool} onDiagnose={()=>perform('diagnose',diagnose)} onSave={history.save} records={history.records} onHistory={()=>setTab('history')}/></div></div>
+        <div hidden={tab!=='usbScripts'}><UsbScriptsPanel active={tab==='usbScripts'} connected={connected} diagnostic={diagnostic} busy={busy} onConnect={connect} onSaveScript={saveBadUsbScript} onOpenBadUsb={openBadUsb} onListScripts={listBadUsbScripts} onDeleteScripts={deleteBadUsbScripts}/></div>
         <div hidden={tab!=='analyzer'}><AnalyzerPanel portal={{html:custom?.html??bundle.html,name:custom?.name??'index.html'}} onSave={history.save} onEvent={message=>addEvent(message,'Archivo')}/></div>
         {tab==='history'&&<HistoryPanel records={history.records} onRemove={history.remove} onRestore={history.restore}/>}
         {tab === 'activity' && <section className="panel"><div className="record-heading"><div><span className="section-index">TRAZABILIDAD DE LA PRUEBA</span><h2>Registro de sesión <Badge>{events.length} eventos</Badge></h2></div><div className="record-buttons"><Button disabled={!practiceRef.current.events.length} onClick={()=>{savePractice();setTab('history');}}><History size={16}/> Guardar práctica actual</Button><Button disabled={!events.length} onClick={exportReport}><ArrowDownToLine size={16}/> Exportar registro</Button></div></div><div className="panel-body"><EventList events={events}/></div></section>}
