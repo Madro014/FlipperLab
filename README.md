@@ -4,6 +4,21 @@ Interfaz local en español para preparar una prueba de portal cautivo, revisar t
 
 ## Abrir
 
+### Juegos con el Flipper como mando
+
+En **Juegos**, Flipper Run muestra una carrera de obstáculos en el computador. El Flipper envía la tecla de salto mediante **Remote**, por USB o Bluetooth. No requiere la placa ESP32 ni carga archivos al dispositivo.
+
+1. Si el laboratorio tiene abierta la conexión de diagnóstico, pulsa **Liberar conexión USB**. Si usas Marauder, desconéctalo en **Auditar red** y sal del puente USB-UART.
+2. En el Flipper abre **Apps → USB → Remote** con el cable conectado, o **Apps → Bluetooth → Remote** y empareja «Control …» desde el computador. Momentum puede usar nombres o carpetas distintos. Selecciona **Keynote**; también sirve **Keyboard**.
+3. En la página pulsa **Asignar botón** y pulsa brevemente el botón físico que quieras usar. La página muestra la tecla recibida; no puede distinguir si provino del Flipper o del teclado del computador.
+4. Pulsa **Empezar partida**. Cada pulsación salta; suelta el botón entre saltos. Espacio permite probar desde el teclado. Esc pausa. Al cambiar de ventana, sección o salir del foco de la pista, el juego se pausa. Pulsa tu botón de nuevo con la pista enfocada para continuar.
+
+La mejor marca se conserva durante esta sesión de página. Recargar la borra. La asignación, los saltos, las colisiones y la pausa se verifican con entradas de teclado en el navegador; la conexión física de Remote debe comprobarse en tu equipo.
+
+Referencia: [controladores Remote de Flipper](https://docs.flipper.net/zero/apps/controllers).
+
+En **Juegos → En el Flipper · Games** hay una guía para jugar en la pantalla del dispositivo, con pasos para T-Rex Runner, Flappy Bird y Tetris. La colección buscable contiene los 42 archivos observados por USB en `/ext/apps/Games` el 29 de octubre de 2026, con Momentum mntm-dev. Es una lista fija de esa lectura, no un inventario en vivo ni una comprobación de ejecución. Los controles se consultaron en el código público de Momentum y pueden variar con la versión. Cambiar a la guía pausa Flipper Run.
+
 ### Diagnóstico directo con Flipper y AIO V1.4
 
 **Auditar red** abre ahora el modo **Diagnóstico con Flipper**. La revisión manual del router queda en una pestaña opcional.
